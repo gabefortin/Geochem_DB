@@ -53,8 +53,8 @@
         The algorithms used in 16) and 17) above generate too many false alarms. They are not helpful
         enough to identify duplicate samples.
 
-  Developer
-      G. Fortin
+  Developers
+      T. Han, G. Fortin
       
   Last update
       2017-05-21
