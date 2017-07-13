@@ -61,7 +61,7 @@
   Last update
       2017-05-21
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'''
-import os, sys, csv, pyodbc, ogr, osr, datetime, openpyxl
+import os, ogr, osr, datetime, openpyxl, pyodbc
 from openpyxl import load_workbook
 from dateutil.parser import parse
 
@@ -107,15 +107,10 @@ def project2nad83 (x_coord, y_coord, source_epsg):
     
 def main():   
     #File path
-    #db_path = 'C:\\Project\\TillDB\\data\\tillDB_curr.accdb'
     data_dir = 'C:\\Project\\ARIS_Geochem_dev\\data_testing\\_AR Data Staging Location\\'
     chkrpt_nm = 'C:\\Project\\ARIS_Geochem_dev\\data_testing\\checkreports\\SampleInfoCheckReport_' + \
         datetime.datetime.now().strftime("%Y_%m_%d_%H_%M") + '.xlsx'
 
-
-    #Database connection
-    #db_conn = pyodbc.connect('Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ='+db_path)
-    #cur = db_conn.cursor()
 
     #Minimum long. and lat. difference between sample locations in degree
     min_lon = 0.001
@@ -198,10 +193,12 @@ def main():
             write_rpt_err(xls_list[f], 'File Format', 'Wrong coord_conf column header', 1, 13)
         if (str(ws.cell(row = 1, column = 14).value)).lower() <> 'sample_date':
             write_rpt_err(xls_list[f], 'File Format', 'Wrong sample_date column header', 1, 1)
-    chkwb.save(chkrpt_nm)
+
+    chkwb.save(chkrpt_nm) #save results to the xlsx report
 
     #============================ 2. Check x_coord, y_coord, z_coord, and epsg_srid ==========================
     print '\n2.Examine x-coord, y-coord, z-coord and epsg_srid ...'
+
     #Loop through xls files
     for f in range(len(xls_list)):
         xls_name = data_dir + xls_list[f]
@@ -239,8 +236,11 @@ def main():
                 if epsg_cell not in epsg_list:
                     write_rpt_err(xls_list[f], 'Coordinates', 'epsg_srid not in list', str(r), 12)
 
+    chkwb.save(chkrpt_nm) #save results to the xlsx report
+
     # ============================ 3. Check sample_type ==========================
     print '\n3.Examine sample_type ...'
+
     # Loop through xls files
     for f in range(len(xls_list)):
         xls_name = data_dir + xls_list[f]
@@ -266,8 +266,11 @@ def main():
             if samptype_cell not in samptype_list:
                 write_rpt_err(xls_list[f], 'Sample Type', 'sample_type not in list', str(r), 3)
 
+    chkwb.save(chkrpt_nm)  # save results to the xlsx report
+
     #============================ 4. Check sample_subtype ==========================
     print '\n4.Examine sample subtype ...'
+
     #Loop through xls files
     for f in range(len(xls_list)):
         xls_name = data_dir + xls_list[f]
@@ -287,8 +290,11 @@ def main():
                 if subtype_cell not in subtype_list:
                     write_rpt_err(xls_list[f], 'Sample Subtype', 'sample_subtype not in list', str(r), 4)
 
+    chkwb.save(chkrpt_nm)  # save results to the xlsx report
+
     #====================================== 5. Check coord_conf =====================================
     print '\n5.Examine Coord_Conf ...'
+
     #Loop through xls file under year directory
     for f in range(len(xls_list)):
         xls_name = data_dir + xls_list[f]
@@ -306,9 +312,11 @@ def main():
             if (work_cell <> 'l') and (work_cell <> 'm') and (work_cell <> 'h'):
                 write_rpt_err(xls_list[f], 'Coordinate Confidence', 'coord_conf not in list (l,m,h)', str(r), 13)
 
+    chkwb.save(chkrpt_nm)  # save results to the xlsx report
 
     #================== 6. Check points are within BC and within 10km of ARIS point=============
     print '\n6.Examine sample locations to ensure they fall in BC  ...'
+
     #Looking for samples that do not fall in BC to identify possible coordinate issues
 
     # load the shape file as a layer
@@ -381,8 +389,11 @@ def main():
             print xls_file[i] + ', Row: ' + xls_row[i] + ', Sample: ' + xls_sample[i]+ ': Location not in BC'
             write_rpt_err(xls_file[i], 'Location', 'Location not in BC', xls_row[i], '')
 
+    chkwb.save(chkrpt_nm)  # save results to the xlsx report
+
     #----------------------------------7.Check date validity-----------------------------------------------------
     print '\n7.Examine sample dates ...'
+
     #Loop through xls files
     for f in range(len(xls_list)):
         xls_name = data_dir + xls_list[f]
@@ -410,8 +421,13 @@ def main():
                     write_rpt_err(xls_list[f], 'Date', str(ws.cell(row=r, column=14).value) + \
                                   'is not a proper date', str(r), 14)
 
+    chkwb.save(chkrpt_nm)  # save results to the xlsx report
+
     #================== 8. Check points are within 10km of ARIS point=============
     print '\n8. Check points are within 10km of ARIS point  ...'
+
+    #This check is currently very slow. Needs to be improved.... can be ignored if time is an issue.
+
     #Looking for samples that do not fall in BC to identify possible coordinate issues
 
     # load the shape file as a layer
@@ -475,16 +491,17 @@ def main():
                 # roughly subsets features, instead of go over everything
                 ply = feat_in.GetGeometryRef()
                 # test
-                if pt.Within(ply):
+                if not pt.Within(ply):
                     print 'sample is within 10k of aris'
-                else:
-                    print 'sample is not within 10k oops!!!'
+                    write_rpt_err(xls_file[i], 'Location', 'Location not within 10km of ARIS report location', \
+                                  xls_row[i], '')
             else:
-                print 'there is no ARIS report point for this sample'
+                write_rpt_err(xls_file[i], 'Location', 'No ARIS record was found for this report', \
+                              xls_row[i], '')
 
+    chkwb.save(chkrpt_nm)  # save results to the xlsx report
 
-    #db_conn.close()
-    print '\nJob done.' 
+    print '\nJob done.'
     
 if __name__ == "__main__":
     main()
