@@ -1,19 +1,21 @@
 # -*- coding: cp1252 -*-
-'''+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   This script is modified from Tian Han's data_screener.py script. It has been adapted to check sample location 
-   information for the ARIS Geochem data compilation project.
+'''++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   This script is modified from Tian Han's data_screener.py script. It has been adapted to
+   check sample location information for the ARIS Geochem data compilation project.
    
-   This script is coded to identify and report problems found in the staged geochem sample location data in xlsx files
-   before loading them loaded into the ARIS Geochem database. Please beware that this script only identifies
-   and reports problems. The problems identified need to be fixed manually.
+   This script is coded to identify and report problems found in the staged geochem sample
+   location data in xlsx files before loading them loaded into the ARIS Geochem database.
+   Please beware that this script only identifies and reports problems. The problems identified
+   need to be fixed manually.
    
-   The file names for the xlsx sheets are used to code the ARIS numbers into the database, so the names are important.
-   all files should be name XXXXX_loc.xlsx where XXXXX is the ARIS report number.
+   The file names for the xlsx sheets are used to code the ARIS numbers into the database, so
+   the names are important. All files should be name XXXXX_loc.xlsx where XXXXX is the ARIS
+   report number.
    
    Input
          1) Path to the directory where the staged xlsx files reside
-         2) aris_geochem Database path (this is not currently necessary as of June 1, 2017 but may be used at a later 
-            date).
+         2) aris_geochem Database path (this is not currently necessary as of June 1, 2017
+         but may be used at a later date).
          3) Some hardcoded parameters 
          
    Output
@@ -59,7 +61,7 @@
   Last update
       2017-05-21
   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'''
-import os, sys, csv, pyodbc, ogr, osr, datetime
+import os, sys, csv, pyodbc, ogr, osr, datetime, openpyxl
 from openpyxl import load_workbook
 from dateutil.parser import parse
 
@@ -106,7 +108,10 @@ def project2nad83 (x_coord, y_coord, source_epsg):
 def main():   
     #File path
     #db_path = 'C:\\Project\\TillDB\\data\\tillDB_curr.accdb'
-    data_dir = 'C:\\Project\\ARIS_Geochem_dev\\data\\_AR Data Staging Location\\'
+    data_dir = 'C:\\Project\\ARIS_Geochem_dev\\data_testing\\_AR Data Staging Location\\'
+    chkrpt_nm = 'C:\\Project\\ARIS_Geochem_dev\\data_testing\\checkreports\\SampleInfoCheckReport_' + \
+        datetime.datetime.now().strftime("%Y_%m_%d_%H_%M") + '.xlsx'
+
 
     #Database connection
     #db_conn = pyodbc.connect('Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ='+db_path)
@@ -129,8 +134,27 @@ def main():
     subtype_list = ['A Horizon','B Horizon','C Horizon','Ah Horizon','A-B Horizons','B-C Horizons','A-C Horizons',
                     'silt','pit','trench','pan concentrate']
 
+    #create check report xlsx file and 'open' it
+    chkwb = openpyxl.Workbook()
+    chkwb.remove_sheet(chkwb.get_sheet_by_name('Sheet'))
+    chkws = chkwb.create_sheet(title='CheckResults')
+    chkws.cell(row=1, column=1).value = 'File Name'
+    chkws.cell(row=1, column=2).value = 'Check Type'
+    chkws.cell(row=1, column=3).value = 'Problem'
+    chkws.cell(row=1, column=4).value = 'Row'
+    chkws.cell(row=1, column=5).value = 'Column'
+
+    #function to write problems to check report xlsx
+    def write_rpt_err(file,check,problem,row,column):
+        chkws.cell(row=chkws.max_row + 1, column=1).value = file
+        chkws.cell(row=chkws.max_row, column=2).value = check
+        chkws.cell(row=chkws.max_row, column=3).value = problem
+        chkws.cell(row=chkws.max_row, column=4).value = row
+        chkws.cell(row=chkws.max_row, column=5).value = column
+
     #====================================== 1. Check xls file format ======================================
     print '1. Examine file format ...'
+
     #Loop through xls file
     for f in range(len(xls_list)):
         xls_name = data_dir + xls_list[f]
@@ -147,33 +171,34 @@ def main():
             reallastrow = ws.max_row
 
         if (str(ws.cell(row = 1, column = 1).value)).lower() <> 'sample_name':
-            print '    ' + xls_name + ': Wrong Sample_Name column header'
+            write_rpt_err(xls_list[f],'File Format','Wrong sample_name column header',1,1)
         if (str(ws.cell(row = 1, column = 2).value)).lower() <> 'station_name':
-            print '    ' + xls_name + ': Wrong Station Name column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong station_name column header', 1, 2)
         if (str(ws.cell(row = 1, column = 3).value)).lower() <> 'sample_type':
-            print '    ' + xls_name + ': Wrong Sample_Name column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong sample_type column header', 1, 3)
         if (str(ws.cell(row = 1, column = 4).value)).lower() <> 'sample_subtype':
-            print '    ' + xls_name + ': Wrong Sample Subtype column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong sample_subtype column header', 1, 4)
         if (str(ws.cell(row = 1, column = 5).value)).lower() <> 'sample_depth':
-            print '    ' + xls_name + ': Wrong Sample Depth column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong sample_depth column header', 1, 5)
         if (str(ws.cell(row = 1, column = 6).value)).lower() <> 'sample_colour':
-            print '    ' + xls_name + ': Wrong Sample Colour column header'
+            pwrite_rpt_err(xls_list[f],'File Format','Wrong sample_colour column header',1,6)
         if (str(ws.cell(row = 1, column = 7).value)).lower() <> 'sample_desp':
-            print '    ' + xls_name + ': Wrong Sample Desp column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong sample_desp column header', 1, 7)
         if (str(ws.cell(row = 1, column = 8).value)).lower() <> 'duplicate':
-            print '    ' + xls_name + ': Wrong Duplicate column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong duplicate column header', 1, 8)
         if (str(ws.cell(row = 1, column = 9).value)).lower() <> 'x_coord':
-            print '    ' + xls_name + ': Wrong X-Coord column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong x_coord column header', 1, 9)
         if (str(ws.cell(row = 1, column = 10).value)).lower() <> 'y_coord':
-            print '    ' + xls_name + ': Wrong Y-Coord column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong y_coord column header', 1, 10)
         if (str(ws.cell(row = 1, column = 11).value)).lower() <> 'z_coord':
-            print '    ' + xls_name + ': Wrong Z-Coord column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong z_coord column header', 1, 11)
         if (str(ws.cell(row = 1, column = 12).value)).lower() <> 'epsg_srid':
-            print '    ' + xls_name + ': Wrong EPSG_SRID column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong epsg_srid column header', 1, 12)
         if (str(ws.cell(row = 1, column = 13).value)).lower() <> 'coord_conf':
-            print '    ' + xls_name + ': Wrong Coord_Conf column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong coord_conf column header', 1, 13)
         if (str(ws.cell(row = 1, column = 14).value)).lower() <> 'sample_date':
-            print '    ' + xls_name + ': Wrong sample_date column header'
+            write_rpt_err(xls_list[f], 'File Format', 'Wrong sample_date column header', 1, 1)
+    chkwb.save(chkrpt_nm)
 
     #============================ 2. Check x_coord, y_coord, z_coord, and epsg_srid ==========================
     print '\n2.Examine x-coord, y-coord, z-coord and epsg_srid ...'
@@ -193,31 +218,26 @@ def main():
             
             x_cell = str(ws.cell(row = r, column = 9).value).replace(' ', '')
             if not is_number(x_cell):
-                print '    ' + xls_name + ': Row = ' + str(r) + ' ' + str(ws.cell(row = r, column = 9).value) + \
-                      ' invalid x-coord'
+                write_rpt_err(xls_list[f], 'Coordinates', 'x_coord is not a number', str(r), 9)
 
             y_cell = str(ws.cell(row = r, column = 10).value).replace(' ', '')
             if not is_number(y_cell):
-                print '    ' + xls_name + ': Row = ' + str(r) + ' ' + str(ws.cell(row = r, column = 10).value) + \
-                      ' invalid y-coord'
+                write_rpt_err(xls_list[f], 'Coordinates', 'y_coord is not a number', str(r), 10)
 
             z_cell = str(ws.cell(row = r, column = 11).value).replace(' ', '')
             if not ((z_cell == '') or (z_cell == 'None')):
                 if (not is_number(z_cell)):
-                    print '    ' + xls_name + ': Row = ' + str(r) + ' ' + str(ws.cell(row = r, column = 11).value) + \
-                          ' invalid z-coord'
+                    write_rpt_err(xls_list[f], 'Coordinates', 'z_coord is not a number', str(r), 11)
                 if float(z_cell) < 0 or float(z_cell) > 3000:
-                    print '    ' + xls_name + ': Row = ' + str(r) + ' ' + str(ws.cell(row=r, column=11).value) + \
-                          ' z-coord out of range (i.e. not between 0 and 3000m)'
+                    write_rpt_err(xls_list[f], 'Coordinates', 'z_coord is out of range (i.e. not between 0 and 3000m)' \
+                                  , str(r), 11)
             
             epsg_cell = str(ws.cell(row = r, column = 12).value).replace(' ', '')
             if not is_number(epsg_cell):
-                print '    ' + xls_name + ': Row = ' + str(r) + ' ' + str(ws.cell(row = r, column = 12).value) + \
-                      ' invalid epsg_srid'
+                write_rpt_err(xls_list[f], 'Coordinates', 'epsg_srid is not a number', str(r), 12)
             else:
                 if epsg_cell not in epsg_list:
-                    print '    ' + xls_name + ': Row = ' + str(r) + ' ' + str(ws.cell(row=1, column=12).value) + \
-                          ' EPSG not in list'
+                    write_rpt_err(xls_list[f], 'Coordinates', 'epsg_srid not in list', str(r), 12)
 
     # ============================ 3. Check sample_type ==========================
     print '\n3.Examine sample_type ...'
@@ -244,8 +264,7 @@ def main():
         for r in range(2, reallastrow + 1):
             samptype_cell = str(ws.cell(row=r, column=3).value)
             if samptype_cell not in samptype_list:
-                print '    ' + xls_name + ': Row = ' + str(r) + ' ' + str(
-                ws.cell(row=1, column=3).value) + ' sample_type not in list'
+                write_rpt_err(xls_list[f], 'Sample Type', 'sample_type not in list', str(r), 3)
 
     #============================ 4. Check sample_subtype ==========================
     print '\n4.Examine sample subtype ...'
@@ -266,8 +285,7 @@ def main():
             subtype_cell = str(ws.cell(row = r, column = 4).value)
             if not subtype_cell == 'None':
                 if subtype_cell not in subtype_list:
-                    print '    ' + xls_name + ': Row = ' + str(r) + ' ' + str(ws.cell(row=1, column=4).value) + \
-                          ' sample_subtype not in list'
+                    write_rpt_err(xls_list[f], 'Sample Subtype', 'sample_subtype not in list', str(r), 4)
 
     #====================================== 5. Check coord_conf =====================================
     print '\n5.Examine Coord_Conf ...'
@@ -286,10 +304,10 @@ def main():
         for r in range(2, reallastrow + 1):
             work_cell = (str(ws.cell(row = r, column = 13).value).replace(' ', '')).lower()
             if (work_cell <> 'l') and (work_cell <> 'm') and (work_cell <> 'h'):
-                print '    ' + xls_name + ': ' + work_cell + ' invalid coord_conf'
+                write_rpt_err(xls_list[f], 'Coordinate Confidence', 'coord_conf not in list (l,m,h)', str(r), 13)
 
 
-    #================== 6. Check points are within BC =============
+    #================== 6. Check points are within BC and within 10km of ARIS point=============
     print '\n6.Examine sample locations to ensure they fall in BC  ...'
     #Looking for samples that do not fall in BC to identify possible coordinate issues
 
@@ -301,8 +319,6 @@ def main():
     # field index for which i want the data extracted
     # ("satreg2" was what i was looking for)
     idx_reg = lyr_in.GetLayerDefn().GetFieldIndex("NAME")
-
-
 
     #Loop through the xls files
     xls_sample = list()  #Build a list for sample_code in xlsx files
@@ -355,7 +371,6 @@ def main():
         for feat_in in lyr_in:
             # roughly subsets features, instead of go over everything
             ply = feat_in.GetGeometryRef()
-
             # test
             if pt.Within(ply):
                 coordcheck = 1
@@ -364,6 +379,7 @@ def main():
 
         if coordcheck != 1:
             print xls_file[i] + ', Row: ' + xls_row[i] + ', Sample: ' + xls_sample[i]+ ': Location not in BC'
+            write_rpt_err(xls_file[i], 'Location', 'Location not in BC', xls_row[i], '')
 
     #----------------------------------7.Check date validity-----------------------------------------------------
     print '\n7.Examine sample dates ...'
@@ -388,11 +404,83 @@ def main():
                     try:
                         parse(date_cell)
                     except ValueError:
-                        print '    ' + xls_name + ': Row = ' + str(r) + ' ' + str(ws.cell(row=1, column=14).value) + \
-                            ' is not a proper date'
+                        write_rpt_err(xls_list[f], 'Date', str(ws.cell(row=r, column=14).value) + \
+                                      'is not a proper date', str(r), 14)
                 else:
-                    print '    ' + xls_name + ': Row = ' + str(r) + ' ' + str(ws.cell(row=1, column=14).value) + \
-                          ' is not a proper date'
+                    write_rpt_err(xls_list[f], 'Date', str(ws.cell(row=r, column=14).value) + \
+                                  'is not a proper date', str(r), 14)
+
+    #================== 8. Check points are within 10km of ARIS point=============
+    print '\n8. Check points are within 10km of ARIS point  ...'
+    #Looking for samples that do not fall in BC to identify possible coordinate issues
+
+    # load the shape file as a layer
+    drv    = ogr.GetDriverByName('ESRI Shapefile')
+    ds_in  = drv.Open("aris_10km_buffer.shp")
+    lyr_in = ds_in.GetLayer(0)
+
+    # field index for which i want the data extracted
+    # ("satreg2" was what i was looking for)
+    idx_reg = lyr_in.GetLayerDefn().GetFieldIndex("asses_num")
+
+    #Loop through the xls files
+    xls_sample = list()  #Build a list for sample_code in xlsx files
+    xls_xc = list()      #Build a list for x_coord in xlsx files
+    xls_yc = list()      #Build a list for y_coord in xlsx files
+    xls_file = list()    #Build a list for xlsx file names
+    xls_row = list()
+    xls_loccheck = list()
+    for f in range(len(xls_list)):
+        xls_name = data_dir + xls_list[f]
+
+        #Open and exam each xls file
+        wb = load_workbook(filename = xls_name)
+        ws = wb[wb.sheetnames[0]]
+
+        if (ws.cell(row = ws.max_row, column = 1)).value is None:
+            reallastrow = ws.max_row - 1
+        else:
+            reallastrow = ws.max_row
+
+
+        for r in range(2, reallastrow + 1):
+            cell_sample = str(ws.cell(row = r, column = 1).value).replace(' ', '')
+            cell_xc = str(ws.cell(row = r, column = 9).value).replace(' ', '')
+            cell_yc = str(ws.cell(row = r, column = 10).value).replace(' ', '')
+            cell_epsg = str(ws.cell(row = r, column = 12).value).replace(' ', '')
+            cell_row = str(r)
+
+            xls_sample.append(cell_sample)
+
+            if cell_epsg <> '4269': #NAD83 geographic
+                [cell_xc, cell_yc] = project2nad83 (float(cell_xc), float(cell_yc), int(cell_epsg))
+            xls_xc.append(cell_xc)
+            xls_yc.append(cell_yc)
+            xls_file.append(xls_name)
+            xls_row.append(cell_row)
+
+
+    #Loop through to check each sample coord
+    for i in range(len(xls_sample)):
+        #Examine sample locations
+
+        # create point geometry
+        pt = ogr.Geometry(ogr.wkbPoint)
+        pt.SetPoint_2D(0, float(xls_xc[i]), float(xls_yc[i]))
+        lyr_in.SetSpatialFilter(pt)
+
+        # go over all the polygons in the layer see if one include the point
+        for feat_in in lyr_in:
+            if feat_in.GetFieldAsString("asses_num") == xls_list[f].partition('_')[0]:
+                # roughly subsets features, instead of go over everything
+                ply = feat_in.GetGeometryRef()
+                # test
+                if pt.Within(ply):
+                    print 'sample is within 10k of aris'
+                else:
+                    print 'sample is not within 10k oops!!!'
+            else:
+                print 'there is no ARIS report point for this sample'
 
 
     #db_conn.close()
